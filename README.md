@@ -7,7 +7,7 @@ There are some implementation details of Reinforcement Learning algorithms, incl
 | ---- | ------------------------------------------- | ------------------------------------------------------------ |
 | MCTS |                                             |                                                              |
 | PPO  | [PPO-Code](https://github.com/Evan-wyl/PPO) | [PPO-Introduction](https://www.yuque.com/u2274123/xrrca1/huvxggkboeso7sr5) |
-| A3C  | [A3C-Code](https://github.com/Evan-wyl/A3C) | [A3C-Introduction]([A3C (yuque.com)](https://www.yuque.com/u2274123/xrrca1/qc8msvou8q3meyx5)) |
+| A3C  | [A3C-Code](https://github.com/Evan-wyl/A3C) | [A3C-Introduction](https://www.yuque.com/u2274123/xrrca1/qc8msvou8q3meyx5) |
 | A2C  |                                             |                                                              |
 | SAC  |                                             |                                                              |
 | GAIL |                                             |                                                              |
