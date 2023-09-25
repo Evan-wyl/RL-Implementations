@@ -16,4 +16,4 @@ There are some implementation details of Reinforcement Learning algorithms, incl
 
 ## 参考文献
 
-[The 37 Implementation Details of Proximal Policy Optimization](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/#Cobbe)
+[The 37 Implementation Details of Proximal Policy Optimization](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/)
