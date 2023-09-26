@@ -11,15 +11,14 @@ from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 from torch import optim
 
-from gym.wrappers import FrameStack
-
 import os
 from distutils.util import strtobool
 
-from util import SkipFrame, GrayScaleObservation, ResizeObservation
+from stable_baselines3.common.atari_wrappers import ClipRewardEnv, EpisodicLifeEnv, FireResetEnv, MaxAndSkipEnv, NoopResetEnv
 
 import logging
 logging.basicConfig(filemode="w", format="%(asctime)s-%(name)s-%(levelname)s-%(message)s", level=logging.INFO)
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -76,6 +75,7 @@ def parse_args():
                         help="the maximum norm for the gradient clipping")
     parser.add_argument("--target-kl", type=float, default=None,
                         help="the target KL divergence threshold")
+
     args = parser.parse_args()
     args.batch_size = int(args.num_envs * args.num_steps)
     args.minibatch_size = int(args.batch_size // args.num_minibatches)
@@ -89,6 +89,15 @@ def make_env(gym_id, seed, idx, capture_video, run_name):
         if capture_video:
             if idx == 0:
                 env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
+        env = NoopResetEnv(env, noop_max=30)
+        env = MaxAndSkipEnv(env, skip=4)
+        env = EpisodicLifeEnv(env)
+        if "FIRE" in env.unwrapped.get_action_meanings():
+            env = FireResetEnv(env)
+        env = ClipRewardEnv(env)
+        env = gym.wrappers.ResizeObservation(env, shape=(84, 84))
+        env = gym.wrappers.GrayScaleObservation(env)
+        env = gym.wrappers.FrameStack(env, 4)
         # env.seed(seed)
         env.action_space.seed(seed)
         env.observation_space.seed(seed)
@@ -106,22 +115,15 @@ class Agent(nn.Module):
     def __init__(self, envs):
         super(Agent, self).__init__()
 
-        c, h, w = (4, 84, 84)
-
-        if h != 84:
-            raise ValueError(f"Expecting input height: 84, got: {h}")
-        if w != 84:
-            raise ValueError(f"Expecting input width: 84, got: {w}")
-
         self.critic = nn.Sequential(
-            layer_init(nn.Conv2d(in_channels=c, out_channels=32, kernel_size=8, stride=4)),
+            layer_init(nn.Conv2d(in_channels=4, out_channels=32, kernel_size=8, stride=4)),
             nn.ReLU(),
             layer_init(nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2)),
             nn.ReLU(),
             layer_init(nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1)),
             nn.ReLU(),
             nn.Flatten(),
-            layer_init(nn.Linear(3136, 512)),
+            layer_init(nn.Linear(64 * 7 * 7, 512)),
             nn.ReLU(),
             layer_init(nn.Linear(512, 1), std=1.0)
         )
@@ -134,9 +136,9 @@ class Agent(nn.Module):
             layer_init(nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1)),
             nn.ReLU(),
             nn.Flatten(),
-            layer_init(nn.Linear(3136, 512)),
+            layer_init(nn.Linear(64 * 7 * 7, 512)),
             nn.ReLU(),
-            layer_init(nn.Linear(64, envs.single_action_space.n), std=0.01)
+            layer_init(nn.Linear(512, envs.single_action_space.n), std=0.01)
         )
 
     def get_value(self, x):
@@ -156,7 +158,7 @@ if __name__ == '__main__':
     logging.info("run_name: {}".format(run_name))
     if args.track:
         import wandb
-        wandb.login(key="bc7ee0a6fdbed43674ecaedba4653d0838149516")
+        wandb.login(key="key")
         logging.info("log in wandb")
 
         wandb.init(
@@ -227,7 +229,7 @@ if __name__ == '__main__':
 
                 next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(done).to(device)
 
-                if len(infos) > 0 and isinstance(infos, dict):
+                if len(infos) > 0 and isinstance(infos, dict) and "final_info" in infos.keys():
                     for item in infos['final_info']:
                         if isinstance(item, dict) and 'episode' in item.keys():
                             logging.info(item)
