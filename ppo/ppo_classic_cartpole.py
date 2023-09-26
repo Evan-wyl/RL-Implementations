@@ -184,7 +184,7 @@ if __name__ == '__main__':
         next_done = torch.zeros(args.num_envs).to(device)
         num_updates = args.total_timesteps // args.batch_size
 
-        for update in range(num_updates):
+        for update in range(1, num_updates + 1):
             if args.anneal_lr:
                 frac = 1.0 - (update - 1.0) / num_updates
                 lrnow = frac * args.learning_rate
