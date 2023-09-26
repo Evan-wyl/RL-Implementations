@@ -133,7 +133,7 @@ if __name__ == '__main__':
     logging.info("run_name: {}".format(run_name))
     if args.track:
         import wandb
-        wandb.login(key="bc7ee0a6fdbed43674ecaedba4653d0838149516")
+        wandb.login(key="key")
         logging.info("log in wandb")
 
         wandb.init(
