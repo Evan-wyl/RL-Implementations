@@ -35,6 +35,7 @@ pip install opencv-contrib-python-headless
 
 # gym相关包
 pip install gym
+stable_baselines3
 pip install ale-py
 
 pip install autorom(install command)

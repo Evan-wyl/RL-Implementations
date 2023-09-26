@@ -15,6 +15,9 @@ from distutils.util import strtobool
 import logging
 logging.basicConfig(filemode="w", format="%(asctime)s-%(name)s-%(levelname)s-%(message)s", level=logging.INFO)
 
+os.environ["WANDB_MODE"] = "offline"
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--exp-name", type=str, default=os.path.basename(__file__).rstrip(".py"),
@@ -23,7 +26,7 @@ def parse_args():
                         help="the id of the gym environment")
     parser.add_argument("--learning_rate", type=float, default=2.5e-4,
                         help='the learning rate of optimizer')
-    parser.add_argument("--seed", type=int, default="2023",
+    parser.add_argument("--seed", type=int, default=2023,
                         help="seed of the experiment")
     parser.add_argument("--total-timesteps", type=int, default=5500000,
                         help='total timesteps of the experiments')
@@ -50,7 +53,7 @@ def parse_args():
                         help="Use GAE for advantage computation")
     parser.add_argument("--gamma", type=float, default=0.99,
                         help="the discount factor gamma")
-    parser.add_argument("--gae-lambda", type=float, default="0.95",
+    parser.add_argument("--gae-lambda", type=float, default=0.95,
                         help="the lambda for the general advantage estimation")
     parser.add_argument("--num-minibatches", type=int, default=4,
                         help="the number of mini-batches")

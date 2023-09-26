@@ -28,7 +28,7 @@ def parse_args():
                         help="the id of the gym environment")
     parser.add_argument("--learning_rate", type=float, default=2.5e-4,
                         help='the learning rate of optimizer')
-    parser.add_argument("--seed", type=int, default="2023",
+    parser.add_argument("--seed", type=int, default=2023,
                         help="seed of the experiment")
     parser.add_argument("--total-timesteps", type=int, default=5500000,
                         help='total timesteps of the experiments')
@@ -55,7 +55,7 @@ def parse_args():
                         help="Use GAE for advantage computation")
     parser.add_argument("--gamma", type=float, default=0.99,
                         help="the discount factor gamma")
-    parser.add_argument("--gae-lambda", type=float, default="0.95",
+    parser.add_argument("--gae-lambda", type=float, default=0.95,
                         help="the lambda for the general advantage estimation")
     parser.add_argument("--num-minibatches", type=int, default=4,
                         help="the number of mini-batches")
@@ -94,7 +94,7 @@ def make_env(gym_id, seed, idx, capture_video, run_name):
         env = EpisodicLifeEnv(env)
         if "FIRE" in env.unwrapped.get_action_meanings():
             env = FireResetEnv(env)
-        env = ClipRewardEnv(env)
+        # env = ClipRewardEnv(env)
         env = gym.wrappers.ResizeObservation(env, shape=(84, 84))
         env = gym.wrappers.GrayScaleObservation(env)
         env = gym.wrappers.FrameStack(env, 4)
@@ -142,14 +142,14 @@ class Agent(nn.Module):
         )
 
     def get_value(self, x):
-        return self.critic(x)
+        return self.critic(x / 250)
 
     def get_action_and_value(self, x, action=None):
-        logits = self.actor(x)
+        logits = self.actor(x / 250)
         probs = Categorical(logits=logits)
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action), probs.entropy(), self.critic(x)
+        return action, probs.log_prob(action), probs.entropy(), self.critic(x / 250)
 
 
 if __name__ == '__main__':
