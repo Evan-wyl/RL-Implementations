@@ -23,10 +23,10 @@ pip install matplotlib
 
 #ml相关工具包
 pip install torch
-pip install sklearn
+pip install scikit-learn
 
 # 训练结果可视化工具包
-pip install tensorbard
+pip install tensorboard
 pip install wandb
 
 # opencv相关工具包
@@ -35,7 +35,7 @@ pip install opencv-contrib-python-headless
 
 # gym相关包
 pip install gym
-stable_baselines3
+pip install stable_baselines3
 pip install ale-py
 
 pip install autorom(install command)
