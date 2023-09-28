@@ -10,7 +10,7 @@ There are some implementation details of Reinforcement Learning algorithms, incl
 | A2C  |                                                            |                                                              |
 | SAC  |                                                            |                                                              |
 | GAIL |                                                            |                                                              |
-|      |                                                            |                                                              |
+| PPG  |                                                            |                                                              |
 
 ```python
 # 创建虚拟环境
