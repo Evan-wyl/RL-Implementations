@@ -152,6 +152,21 @@ class Agent(nn.Module):
         return action, probs.log_prob(action), probs.entropy(), self.critic(x / 250)
 
 
+def test(model):
+    env = make_env(args.gym_id, args.seed, 0, capture_video=True, run_name=run_name)()
+    obs, infos = env.reset()
+    done = False
+    total_reward = 0
+    while not done:
+        action, logprob, _, value = model.get_action_and_value(obs)
+        next_obs, reward, done, _, infos = env.step(action.cpu().numpy())
+        total_reward += reward
+        obs = next_obs
+        env.render()
+
+    return total_reward
+
+
 if __name__ == '__main__':
     args = parse_args()
     run_name = f"{args.gym_id}_{args.exp_name}_{args.seed}_{int(time.time())}"
@@ -174,7 +189,7 @@ if __name__ == '__main__':
             config = vars(args),
             name = run_name,
             monitor_gym = True,
-            save_code = True,
+            save_code = True
         )
         logging.info("wandb initialization")
         writer = SummaryWriter(f"runs/{run_name}")
@@ -350,7 +365,14 @@ if __name__ == '__main__':
 
         logging.info('time spending {} second.'.format((time.time() - start_time)))
 
+        logging.info('save models......')
         torch.save(agent.state_dict(), model_param_file)
+        logging.info('model testing......')
+        total_reward = 0
+        for i in range(10):
+            reward = test(agent)
+            total_reward += reward
+        logging.info('total rewards:{}'.format(total_reward))
 
         envs.close()
         writer.close()

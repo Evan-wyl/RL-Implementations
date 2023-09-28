@@ -37,6 +37,7 @@ pip install opencv-contrib-python-headless
 pip install gym
 pip install stable_baselines3
 pip install ale-py
+pip install moviepy
 
 pip install autorom(install command)
 AutoROM --accept-license(execute command)
