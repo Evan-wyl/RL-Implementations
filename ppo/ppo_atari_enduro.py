@@ -156,6 +156,12 @@ if __name__ == '__main__':
     args = parse_args()
     run_name = f"{args.gym_id}_{args.exp_name}_{args.seed}_{int(time.time())}"
     logging.info("run_name: {}".format(run_name))
+
+    model_param_path = "../models/"
+    if not os.path.exists(model_param_path):
+        os.makedirs(model_param_path)
+    model_param_file = os.path.join(model_param_path, "ppo_atari_enduro.pkl")
+
     if args.track:
         import wandb
         wandb.login(key="key")
@@ -168,7 +174,7 @@ if __name__ == '__main__':
             config = vars(args),
             name = run_name,
             monitor_gym = True,
-            save_code = True
+            save_code = True,
         )
         logging.info("wandb initialization")
         writer = SummaryWriter(f"runs/{run_name}")
@@ -343,6 +349,8 @@ if __name__ == '__main__':
             writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
         logging.info('time spending {} second.'.format((time.time() - start_time)))
+
+        torch.save(agent.state_dict(), model_param_file)
 
         envs.close()
         writer.close()
