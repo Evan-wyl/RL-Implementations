@@ -24,6 +24,7 @@ def parse_args():
                         help='the name of this experiment')
     parser.add_argument("--gym-id", type=str, default='HalfCheetah-v4',
                         help="the id of the gym environment")
+    parser.add_argument('--model-file-name', type=str, default='halfcheetah.pkl')
     parser.add_argument("--learning_rate", type=float, default=3e-4,
                         help='the learning rate of optimizer')
     parser.add_argument("--seed", type=int, default=2023,
@@ -163,7 +164,7 @@ if __name__ == '__main__':
     model_param_path = "../models/"
     if not os.path.exists(model_param_path):
         os.makedirs(model_param_path)
-    model_param_file = os.path.join(model_param_path, "ppo_atari_enduro.pkl")
+    model_param_file = os.path.join(model_param_path, args.model_file_name)
 
     if args.track:
         import wandb

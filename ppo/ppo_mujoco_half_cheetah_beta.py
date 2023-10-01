@@ -26,6 +26,7 @@ def parse_args():
                         help='the name of this experiment')
     parser.add_argument("--gym-id", type=str, default='HalfCheetah-v4',
                         help="the id of the gym environment")
+    parser.add_argument('--model-file-name', type=str, default='halfcheetah_beta.pkl')
     parser.add_argument("--learning_rate", type=float, default=3e-4,
                         help='the learning rate of optimizer')
     parser.add_argument("--seed", type=int, default=2023,
@@ -134,8 +135,8 @@ class Agent(nn.Module):
             layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01)
         )
 
-        self.action_space_high = envs.single_action_space.high
-        self.action_space_low = envs.single_action_space.low
+        self.action_space_high = torch.tensor(envs.single_action_space.high).to(device)
+        self.action_space_low = torch.tensor(envs.single_action_space.low).to(device)
 
         self.softplus = torch.nn.Softplus()
 
@@ -152,8 +153,6 @@ class Agent(nn.Module):
         alpha = torch.add(self.softplus(self.actor_alpha_pre_softplus(x)), 1)
         beta = torch.add(self.softplus(self.actor_beta_pre_softplus(x)), 1)
         probs = Beta(alpha, beta)
-        logging.info('alpha:{}'.format(alpha))
-        logging.info('beta:{}'.format(beta))
         if action is None:
             action = probs.sample()
             action = self.scale_by_action_bounds(action)
@@ -184,7 +183,7 @@ if __name__ == '__main__':
     model_param_path = "../models/"
     if not os.path.exists(model_param_path):
         os.makedirs(model_param_path)
-    model_param_file = os.path.join(model_param_path, "ppo_atari_enduro.pkl")
+    model_param_file = os.path.join(model_param_path, args.model_file_name)
 
     if args.track:
         import wandb
