@@ -102,8 +102,11 @@ def make_env(gym_id, seed, idx, capture_video, run_name):
     return thunk
 
 
-def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
-    torch.nn.init.orthogonal_(layer.weight, std)
+def layer_init(layer, std=np.sqrt(2), bias_const=0.0, type='orthogonal'):
+    if type == 'orthogonal':
+        torch.nn.init.orthogonal_(layer.weight, std)
+    else:
+        torch.nn.init.xavier_uniform_(layer.weight)
     torch.nn.init.constant_(layer.bias, bias_const)
     return layer
 
@@ -121,18 +124,18 @@ class Agent(nn.Module):
         )
 
         self.actor_alpha_pre_softplus = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64), type='xavier'),
             nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
+            layer_init(nn.Linear(64, 64), type='xavier'),
             nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01)
+            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01, type='xavier')
         )
         self.actor_beta_pre_softplus = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64), type='xavier'),
             nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
+            layer_init(nn.Linear(64, 64), type='xavier'),
             nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01)
+            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01, type='xavier')
         )
 
         self.action_space_high = torch.tensor(envs.single_action_space.high).to(device)
