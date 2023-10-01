@@ -163,6 +163,7 @@ def test(model):
         total_reward += reward
         obs = next_obs
         env.render()
+    env.close()
 
     return total_reward
 

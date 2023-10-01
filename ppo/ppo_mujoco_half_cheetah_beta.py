@@ -6,10 +6,12 @@ import gym
 import numpy as np
 
 import torch
+from torch import functional as F
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 from torch import optim
 from torch.distributions.normal import Normal
+from torch.distributions.beta import Beta
 
 import os
 from distutils.util import strtobool
@@ -28,7 +30,7 @@ def parse_args():
                         help='the learning rate of optimizer')
     parser.add_argument("--seed", type=int, default=2023,
                         help="seed of the experiment")
-    parser.add_argument("--total-timesteps", type=int, default=2000000,
+    parser.add_argument("--total-timesteps", type=int, default=20000000,
                         help='total timesteps of the experiments')
     parser.add_argument("--torch-deterministic", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="if toggled, `torch.backends.cudnn.deterministic=False`")
@@ -117,26 +119,45 @@ class Agent(nn.Module):
             layer_init(nn.Linear(64, 1), std=1.0)
         )
 
-        self.actor_mean = nn.Sequential(
+        self.actor_alpha_pre_softplus = nn.Sequential(
             layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01)
         )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+        self.actor_beta_pre_softplus = nn.Sequential(
+            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01)
+        )
+
+        self.action_space_high = envs.single_action_space.high
+        self.action_space_low = envs.single_action_space.low
+
+        self.softplus = torch.nn.Softplus()
 
     def get_value(self, x):
         return self.critic(x)
 
+    def scale_by_action_bounds(self, beta_dist_samples):
+        return beta_dist_samples * (self.action_space_high - self.action_space_low)  + self.action_space_low
+
+    def inv_scale_by_action_bounds(self, actions):
+        return (actions - self.action_space_low) / (self.action_space_high - self.action_space_low)
+
     def get_action_and_value(self, x, action=None):
-        action_mean = self.actor_mean(x)
-        action_logstd = self.actor_logstd.expand_as(action_mean)
-        action_std = torch.exp(action_logstd)
-        probs = Normal(action_mean, action_std)
+        alpha = torch.add(self.softplus(self.actor_alpha_pre_softplus(x)), 1)
+        beta = torch.add(self.softplus(self.actor_beta_pre_softplus(x)), 1)
+        probs = Beta(alpha, beta)
+        logging.info('alpha:{}'.format(alpha))
+        logging.info('beta:{}'.format(beta))
         if action is None:
             action = probs.sample()
-        return action, probs.log_prob(action).sum(1), probs.entropy().sum(), self.critic(x)
+            action = self.scale_by_action_bounds(action)
+        return action, probs.log_prob(self.inv_scale_by_action_bounds(action)).sum(1), probs.entropy().sum(1), self.critic(x)
 
 
 def test(model):
