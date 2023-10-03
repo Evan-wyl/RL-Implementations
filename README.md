@@ -14,7 +14,7 @@ There are some implementation details of Reinforcement Learning algorithms, incl
 
 ```python
 # 创建虚拟环境
-conda activate -n name python==3.8
+conda activate -n py3.8 python==3.8
 
 # 数据处理相关工具包
 pip install numpy
