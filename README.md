@@ -23,6 +23,8 @@ pip install matplotlib
 
 #ml相关工具包
 pip install torch
+pip install torchsummary
+pip install torchinfo
 pip install scikit-learn
 
 # 训练结果可视化工具包
