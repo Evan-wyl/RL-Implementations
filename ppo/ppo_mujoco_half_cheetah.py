@@ -3,6 +3,8 @@ import random
 import time
 
 import gym
+from gym.utils.save_video import save_video
+
 import numpy as np
 
 import torch
@@ -29,7 +31,7 @@ def parse_args():
                         help='the learning rate of optimizer')
     parser.add_argument("--seed", type=int, default=2023,
                         help="seed of the experiment")
-    parser.add_argument("--total-timesteps", type=int, default=2000000,
+    parser.add_argument("--total-timesteps", type=int, default=10000000,
                         help='total timesteps of the experiments')
     parser.add_argument("--torch-deterministic", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="if toggled, `torch.backends.cudnn.deterministic=False`")
@@ -88,6 +90,7 @@ def make_env(gym_id, seed, idx, capture_video, run_name):
         if capture_video:
             if idx == 0:
                 env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
+        # clipped action is important for gaussian parameterization
         env = gym.wrappers.ClipAction(env)
         env = gym.wrappers.NormalizeObservation(env)
         env = gym.wrappers.TransformObservation(env, lambda obs : np.clip(obs, -10, 10))
@@ -150,7 +153,7 @@ def test(model):
         next_obs, reward, done, _, infos = env.step(action.cpu().numpy())
         total_reward += reward
         obs = next_obs
-        env.render()
+    save_video(env.render('human'), f"videos/{run_name}")
     env.close()
 
     return total_reward
