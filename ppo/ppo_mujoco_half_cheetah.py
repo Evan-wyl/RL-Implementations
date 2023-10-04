@@ -31,7 +31,7 @@ def parse_args():
                         help='the learning rate of optimizer')
     parser.add_argument("--seed", type=int, default=2023,
                         help="seed of the experiment")
-    parser.add_argument("--total-timesteps", type=int, default=10000000,
+    parser.add_argument("--total-timesteps", type=int, default=20000000,
                         help='total timesteps of the experiments')
     parser.add_argument("--torch-deterministic", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="if toggled, `torch.backends.cudnn.deterministic=False`")
@@ -148,11 +148,12 @@ def test(model):
     obs, infos = env.reset()
     done = False
     total_reward = 0
+    obs = torch.tensor(obs).to(device)
     while not done:
         action, logprob, _, value = model.get_action_and_value(obs)
         next_obs, reward, done, _, infos = env.step(action.cpu().numpy())
         total_reward += reward
-        obs = next_obs
+        obs = torch.tensor(next_obs).to(device)
     save_video(env.render('human'), f"videos/{run_name}")
     env.close()
 

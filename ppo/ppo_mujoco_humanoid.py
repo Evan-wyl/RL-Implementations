@@ -147,12 +147,13 @@ def test(model):
     obs, infos = env.reset()
     done = False
     total_reward = 0
+    obs = torch.tensor(obs).to(device)
     while not done:
         action, logprob, _, value = model.get_action_and_value(obs)
         next_obs, reward, done, _, infos = env.step(action.cpu().numpy())
         total_reward += reward
-        obs = next_obs
-        save_video(env.render('human'), f"videos/{run_name}/")
+        obs = torch.tensor(next_obs).to(device)
+    save_video(env.render('human'), f"videos/{run_name}/")
     env.close()
 
     return total_reward

@@ -3,6 +3,8 @@ import random
 import time
 
 import gym
+from gym.utils.save_video import save_video
+
 import numpy as np
 
 import torch
@@ -39,7 +41,7 @@ def parse_args():
                         help="if toggled, cuda will be enabled by default")
     parser.add_argument("--track", type=lambda x : bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="if toggled, this experiment will be tracked with Weights and Biases")
-    parser.add_argument("--wandb-project-name", type=str, default="ppo-halfcheetah",
+    parser.add_argument("--wandb-project-name", type=str, default="ppo-halfcheetah-beta",
                         help="the wandb's project name")
     parser.add_argument("--wandb-entity", type=str, default=None,
                         help="the entity (team) of wandb's project")
@@ -58,7 +60,7 @@ def parse_args():
                         help="the discount factor gamma")
     parser.add_argument("--gae-lambda", type=float, default=0.95,
                         help="the lambda for the general advantage estimation")
-    parser.add_argument("--num-minibatches", type=int, default=32,
+    parser.add_argument("--num-minibatches", type=int, default=16,
                         help="the number of mini-batches")
     parser.add_argument("--update-epochs", type=int, default=10,
                         help="the K epochs to update the policy")
@@ -68,11 +70,11 @@ def parse_args():
                         help="the surrogate clipping coefficient")
     parser.add_argument("--clip-vloss", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="Toggles whether or not to use a clipped loss for the value function, as per the paper.")
-    parser.add_argument("--ent-coef", type=float, default=0.0,
+    parser.add_argument("--ent-coef", type=float, default=0.01,
                         help="coefficient of the entropy")
     parser.add_argument("--vf-coef", type=float, default=0.5,
                         help="coefficient of the value function")
-    parser.add_argument("--max-grad-norm", type=float, default=0.5,
+    parser.add_argument("--max-grad-norm", type=float, default=0.3,
                         help="the maximum norm for the gradient clipping")
     parser.add_argument("--target-kl", type=float, default=None,
                         help="the target KL divergence threshold")
@@ -155,6 +157,16 @@ class Agent(nn.Module):
     def get_action_and_value(self, x, action=None):
         alpha = torch.add(self.softplus(self.actor_alpha_pre_softplus(x)), 1)
         beta = torch.add(self.softplus(self.actor_beta_pre_softplus(x)), 1)
+        if torch.isnan(alpha).any() or torch.isnan(beta).any() or torch.isinf(alpha).any() or torch.isinf(beta).any():
+            logging.info("alpha model parameters:")
+            for k,v in self.actor_alpha_pre_softplus.parameters():
+                logging.info("k:{}".format(k))
+                logging.info("parameter:{}".format(v))
+            logging.info("-----------------------------------")
+            logging.info("beta model parameters:")
+            for k,v in self.actor_beta_pre_softplus.parameters():
+                logging.info("k:{}".format(k))
+                logging.info("parameter:{}".format(v))
         probs = Beta(alpha, beta)
         if action is None:
             action = probs.sample()
@@ -167,12 +179,13 @@ def test(model):
     obs, infos = env.reset()
     done = False
     total_reward = 0
+    obs = torch.tensor(obs).to(device)
     while not done:
         action, logprob, _, value = model.get_action_and_value(obs)
         next_obs, reward, done, _, infos = env.step(action.cpu().numpy())
         total_reward += reward
-        obs = next_obs
-        env.render()
+        obs = torch.tensor(next_obs).to(device)
+    save_video(env.render('human'), f"videos/{run_name}/")
     env.close()
 
     return total_reward
