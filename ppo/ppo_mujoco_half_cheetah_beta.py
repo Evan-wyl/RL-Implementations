@@ -33,7 +33,7 @@ def parse_args():
                         help='the learning rate of optimizer')
     parser.add_argument("--seed", type=int, default=2023,
                         help="seed of the experiment")
-    parser.add_argument("--total-timesteps", type=int, default=20000000,
+    parser.add_argument("--total-timesteps", type=int, default=10000000,
                         help='total timesteps of the experiments')
     parser.add_argument("--torch-deterministic", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="if toggled, `torch.backends.cudnn.deterministic=False`")
@@ -107,8 +107,8 @@ def make_env(gym_id, seed, idx, capture_video, run_name):
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0, type='orthogonal'):
     if type == 'orthogonal':
         torch.nn.init.orthogonal_(layer.weight, std)
-    else:
-        torch.nn.init.xavier_uniform_(layer.weight)
+    elif type == 'xavier_uniform':
+        torch.nn.init.xavier_uniform_(layer.weight, gain=nn.init.calculate_gain('tanh'))
     torch.nn.init.constant_(layer.bias, bias_const)
     return layer
 
@@ -126,18 +126,18 @@ class Agent(nn.Module):
         )
 
         self.actor_alpha_pre_softplus = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64), type='xavier'),
+            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64), type='xavier_uniform'),
             nn.Tanh(),
-            layer_init(nn.Linear(64, 64), type='xavier'),
+            layer_init(nn.Linear(64, 64), type='xavier_uniform'),
             nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01, type='xavier')
+            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01, type='orthogonal')
         )
         self.actor_beta_pre_softplus = nn.Sequential(
             layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64), type='xavier'),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64), type='xavier'),
             nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01, type='xavier')
+            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01, type='orthogonal')
         )
 
         self.action_space_high = torch.tensor(envs.single_action_space.high).to(device)
