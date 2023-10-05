@@ -366,7 +366,7 @@ if __name__ == '__main__':
                         kl_ent_coef  = kl_ent_coef / 2
                     elif approx_kl > args.target_kl * 1.5:
                         kl_ent_coef = kl_ent_coef * 2
-                    loss = pg_loss - kl_ent_coef * approx_kl + v_loss * args.vf_coef
+                    loss = pg_loss1 - kl_ent_coef * approx_kl + v_loss * args.vf_coef
 
                     logging.info("calculating gradient")
                     optimizer.zero_grad()
