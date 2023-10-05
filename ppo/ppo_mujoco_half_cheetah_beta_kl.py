@@ -26,9 +26,9 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--exp-name", type=str, default=os.path.basename(__file__).rstrip(".py"),
                         help='the name of this experiment')
-    parser.add_argument("--gym-id", type=str, default='Humanoid-v4',
+    parser.add_argument("--gym-id", type=str, default='HalfCheetah-v4',
                         help="the id of the gym environment")
-    parser.add_argument('--model-file-name', type=str, default='humanoid_beta.pkl')
+    parser.add_argument('--model-file-name', type=str, default='halfcheetah_beta.pkl')
     parser.add_argument("--learning_rate", type=float, default=3e-4,
                         help='the learning rate of optimizer')
     parser.add_argument("--seed", type=int, default=2023,
@@ -41,7 +41,7 @@ def parse_args():
                         help="if toggled, cuda will be enabled by default")
     parser.add_argument("--track", type=lambda x : bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="if toggled, this experiment will be tracked with Weights and Biases")
-    parser.add_argument("--wandb-project-name", type=str, default="ppo-humanoid-beta",
+    parser.add_argument("--wandb-project-name", type=str, default="ppo-halfcheetah-beta",
                         help="the wandb's project name")
     parser.add_argument("--wandb-entity", type=str, default=None,
                         help="the entity (team) of wandb's project")
@@ -60,7 +60,7 @@ def parse_args():
                         help="the discount factor gamma")
     parser.add_argument("--gae-lambda", type=float, default=0.95,
                         help="the lambda for the general advantage estimation")
-    parser.add_argument("--num-minibatches", type=int, default=32,
+    parser.add_argument("--num-minibatches", type=int, default=16,
                         help="the number of mini-batches")
     parser.add_argument("--update-epochs", type=int, default=10,
                         help="the K epochs to update the policy")
@@ -70,7 +70,7 @@ def parse_args():
                         help="the surrogate clipping coefficient")
     parser.add_argument("--clip-vloss", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="Toggles whether or not to use a clipped loss for the value function, as per the paper.")
-    parser.add_argument("--ent-coef", type=float, default=0.1,
+    parser.add_argument("--ent-coef", type=float, default=0.01,
                         help="coefficient of the entropy")
     parser.add_argument("--vf-coef", type=float, default=0.5,
                         help="coefficient of the value function")
@@ -126,18 +126,18 @@ class Agent(nn.Module):
         )
 
         self.actor_alpha_pre_softplus = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64), type='xavier_uniform'),
+            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64), type='xavier'),
             nn.Tanh(),
-            layer_init(nn.Linear(64, 64), type='xavier_uniform'),
+            layer_init(nn.Linear(64, 64), type='xavier'),
             nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01, type='xavier_uniform')
+            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01, type='xavier')
         )
         self.actor_beta_pre_softplus = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64), type='xavier_uniform'),
+            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64), type='xavier'),
             nn.Tanh(),
-            layer_init(nn.Linear(64, 64), type='xavier_uniform'),
+            layer_init(nn.Linear(64, 64), type='xavier'),
             nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01, type='xavier_uniform')
+            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01, type='xavier')
         )
 
         self.action_space_high = torch.tensor(envs.single_action_space.high).to(device)
@@ -159,11 +159,11 @@ class Agent(nn.Module):
         beta = torch.add(self.softplus(self.actor_beta_pre_softplus(x)), 1)
         if torch.isnan(alpha).any() or torch.isnan(beta).any() or torch.isinf(alpha).any() or torch.isinf(beta).any():
             logging.info("alpha model parameters:")
-            for k, v in enumerate(self.actor_alpha_pre_softplus.parameters()):
+            for k,v in enumerate(self.actor_alpha_pre_softplus.parameters()):
                 logging.info("parameter_{}:{}".format(k, v))
             logging.info("-----------------------------------")
             logging.info("beta model parameters:")
-            for k, v in enumerate(self.actor_beta_pre_softplus.parameters()):
+            for k,v in enumerate(self.actor_beta_pre_softplus.parameters()):
                 logging.info("parameter_{}:{}".format(k, v))
         probs = Beta(alpha, beta)
         if action is None:
@@ -201,7 +201,7 @@ if __name__ == '__main__':
 
     if args.track:
         import wandb
-        wandb.login(key="bc7ee0a6fdbed43674ecaedba4653d0838149516")
+        wandb.login(key="key")
         logging.info("log in wandb")
 
         wandb.init(
