@@ -41,7 +41,7 @@ def parse_args():
                         help="if toggled, cuda will be enabled by default")
     parser.add_argument("--track", type=lambda x : bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="if toggled, this experiment will be tracked with Weights and Biases")
-    parser.add_argument("--wandb-project-name", type=str, default="ppo-halfcheetah-beta",
+    parser.add_argument("--wandb-project-name", type=str, default="ppo-halfcheetah-beta-shared",
                         help="the wandb's project name")
     parser.add_argument("--wandb-entity", type=str, default=None,
                         help="the entity (team) of wandb's project")
@@ -107,8 +107,8 @@ def make_env(gym_id, seed, idx, capture_video, run_name):
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0, type='orthogonal'):
     if type == 'orthogonal':
         torch.nn.init.orthogonal_(layer.weight, std)
-    else:
-        torch.nn.init.xavier_uniform_(layer.weight)
+    elif type == 'xavier_uniform':
+        torch.nn.init.xavier_uniform_(layer.weight, gain=nn.init.calculate_gain('tanh'))
     torch.nn.init.constant_(layer.bias, bias_const)
     return layer
 
@@ -126,13 +126,13 @@ class Agent(nn.Module):
         )
 
         self.actor_alpha_beta_shared = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64), type='xavier'),
+            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64), type='xavier_uniform'),
             nn.Tanh(),
-            layer_init(nn.Linear(64, 64), type='xavier'),
+            layer_init(nn.Linear(64, 64), type='xavier_uniform'),
             nn.Tanh(),
         )
-        self.actor_alpha_pre_softplus = layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01, type='xavier')
-        self.actor_beta_pre_softplus = layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01, type='xavier')
+        self.actor_alpha_pre_softplus = layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01, type='orthogonal')
+        self.actor_beta_pre_softplus = layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01, type='orthogonal')
 
         self.action_space_high = torch.tensor(envs.single_action_space.high).to(device)
         self.action_space_low = torch.tensor(envs.single_action_space.low).to(device)
