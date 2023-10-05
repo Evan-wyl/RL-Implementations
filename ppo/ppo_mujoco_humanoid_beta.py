@@ -41,7 +41,7 @@ def parse_args():
                         help="if toggled, cuda will be enabled by default")
     parser.add_argument("--track", type=lambda x : bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="if toggled, this experiment will be tracked with Weights and Biases")
-    parser.add_argument("--wandb-project-name", type=str, default="ppo-humanoid-beta",
+    parser.add_argument("--wandb-project-name", type=str, default="ppo-humanoid-beta-kl",
                         help="the wandb's project name")
     parser.add_argument("--wandb-entity", type=str, default=None,
                         help="the entity (team) of wandb's project")
@@ -374,9 +374,9 @@ if __name__ == '__main__':
                     nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                     optimizer.step()
 
-                if args.target_kl is not None:
-                    if approx_kl > args.target_kl:
-                        break
+                # if args.target_kl is not None:
+                #     if approx_kl > args.target_kl:
+                #         break
 
                 y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
                 var_y = np.var(y_true)
