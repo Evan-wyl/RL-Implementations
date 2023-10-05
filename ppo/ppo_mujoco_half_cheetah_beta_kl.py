@@ -48,7 +48,7 @@ def parse_args():
     parser.add_argument("--capture-video", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="whether to capture videos of the agent performances (check out `videos` folder)")
 
-    parser.add_argument("--num-envs", type=int, default=2,
+    parser.add_argument("--num-envs", type=int, default=1,
                         help="the number of parallel game environments")
     parser.add_argument( "--num-steps", type=int, default=2048,
                          help="the number of steps to run in each environment per policy rollout")
@@ -60,7 +60,7 @@ def parse_args():
                         help="the discount factor gamma")
     parser.add_argument("--gae-lambda", type=float, default=0.95,
                         help="the lambda for the general advantage estimation")
-    parser.add_argument("--num-minibatches", type=int, default=16,
+    parser.add_argument("--num-minibatches", type=int, default=32,
                         help="the number of mini-batches")
     parser.add_argument("--update-epochs", type=int, default=10,
                         help="the K epochs to update the policy")
@@ -72,9 +72,11 @@ def parse_args():
                         help="Toggles whether or not to use a clipped loss for the value function, as per the paper.")
     parser.add_argument("--ent-coef", type=float, default=0.01,
                         help="coefficient of the entropy")
+    parser.add_argument("--kl-ent-coef", type=float, default=3,
+                        help="coefficient of the entropy")
     parser.add_argument("--vf-coef", type=float, default=0.5,
                         help="coefficient of the value function")
-    parser.add_argument("--max-grad-norm", type=float, default=0.3,
+    parser.add_argument("--max-grad-norm", type=float, default=0.5,
                         help="the maximum norm for the gradient clipping")
     parser.add_argument("--target-kl", type=float, default=None,
                         help="the target KL divergence threshold")
@@ -358,7 +360,7 @@ if __name__ == '__main__':
 
                     logging.info("calculating policy entropy")
                     entropy_loss = entropy.mean()
-                    loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+                    loss = pg_loss - args.kl_ent_coef * approx_kl + v_loss * args.vf_coef
 
                     logging.info("calculating gradient")
                     optimizer.zero_grad()
