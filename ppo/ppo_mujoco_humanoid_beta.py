@@ -48,7 +48,7 @@ def parse_args():
     parser.add_argument("--capture-video", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="whether to capture videos of the agent performances (check out `videos` folder)")
 
-    parser.add_argument("--num-envs", type=int, default=2,
+    parser.add_argument("--num-envs", type=int, default=1,
                         help="the number of parallel game environments")
     parser.add_argument( "--num-steps", type=int, default=2048,
                          help="the number of steps to run in each environment per policy rollout")
@@ -70,13 +70,15 @@ def parse_args():
                         help="the surrogate clipping coefficient")
     parser.add_argument("--clip-vloss", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="Toggles whether or not to use a clipped loss for the value function, as per the paper.")
-    parser.add_argument("--ent-coef", type=float, default=0.1,
+    parser.add_argument("--ent-coef", type=float, default=0.01,
+                        help="coefficient of the entropy")
+    parser.add_argument("--kl-ent-coef", type=float, default=3,
                         help="coefficient of the entropy")
     parser.add_argument("--vf-coef", type=float, default=0.5,
                         help="coefficient of the value function")
     parser.add_argument("--max-grad-norm", type=float, default=0.3,
                         help="the maximum norm for the gradient clipping")
-    parser.add_argument("--target-kl", type=float, default=None,
+    parser.add_argument("--target-kl", type=float, default=0.01,
                         help="the target KL divergence threshold")
 
     args = parser.parse_args()
@@ -107,7 +109,9 @@ def make_env(gym_id, seed, idx, capture_video, run_name):
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0, type='orthogonal'):
     if type == 'orthogonal':
         torch.nn.init.orthogonal_(layer.weight, std)
-    else:
+    elif type == 'xavier_uniform_tanh':
+        torch.nn.init.xavier_uniform_(layer.weight, gain=nn.init.calculate_gain('tanh'))
+    elif type == 'xavier_uniform':
         torch.nn.init.xavier_uniform_(layer.weight)
     torch.nn.init.constant_(layer.bias, bias_const)
     return layer
@@ -126,16 +130,16 @@ class Agent(nn.Module):
         )
 
         self.actor_alpha_pre_softplus = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64), type='xavier_uniform'),
+            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64), type='xavier_uniform_tanh'),
             nn.Tanh(),
-            layer_init(nn.Linear(64, 64), type='xavier_uniform'),
+            layer_init(nn.Linear(64, 64), type='xavier_uniform_tanh'),
             nn.Tanh(),
             layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01, type='xavier_uniform')
         )
         self.actor_beta_pre_softplus = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64), type='xavier_uniform'),
+            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64), type='xavier_uniform_tanh'),
             nn.Tanh(),
-            layer_init(nn.Linear(64, 64), type='xavier_uniform'),
+            layer_init(nn.Linear(64, 64), type='xavier_uniform_tanh'),
             nn.Tanh(),
             layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01, type='xavier_uniform')
         )
@@ -201,7 +205,7 @@ if __name__ == '__main__':
 
     if args.track:
         import wandb
-        wandb.login(key="bc7ee0a6fdbed43674ecaedba4653d0838149516")
+        wandb.login(key="key")
         logging.info("log in wandb")
 
         wandb.init(
@@ -342,7 +346,7 @@ if __name__ == '__main__':
                     logging.info("calculating policy loss")
                     pg_loss1 = -mb_advantages * ratio
                     pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
-                    pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+                    pg_loss = pg_loss1.mean()
 
                     logging.info("calculating value loss......")
                     newvalue = newvalue.view(-1)
@@ -358,7 +362,11 @@ if __name__ == '__main__':
 
                     logging.info("calculating policy entropy")
                     entropy_loss = entropy.mean()
-                    loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+                    if approx_kl < args.target_kl / 1.5:
+                        args.kl_ent_coef  = args.kl_ent_coef / 2
+                    elif approx_kl > args.target_kl * 1.5:
+                        args.kl_ent_coef = args.kl_ent_coef * 2
+                    loss = pg_loss - args.kl_ent_coef * approx_kl + v_loss * args.vf_coef
 
                     logging.info("calculating gradient")
                     optimizer.zero_grad()
