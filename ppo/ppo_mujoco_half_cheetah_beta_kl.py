@@ -33,7 +33,7 @@ def parse_args():
                         help='the learning rate of optimizer')
     parser.add_argument("--seed", type=int, default=2023,
                         help="seed of the experiment")
-    parser.add_argument("--total-timesteps", type=int, default=10000000,
+    parser.add_argument("--total-timesteps", type=int, default=8000000,
                         help='total timesteps of the experiments')
     parser.add_argument("--torch-deterministic", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="if toggled, `torch.backends.cudnn.deterministic=False`")
@@ -60,7 +60,7 @@ def parse_args():
                         help="the discount factor gamma")
     parser.add_argument("--gae-lambda", type=float, default=0.95,
                         help="the lambda for the general advantage estimation")
-    parser.add_argument("--num-minibatches", type=int, default=32,
+    parser.add_argument("--num-minibatches", type=int, default=16,
                         help="the number of mini-batches")
     parser.add_argument("--update-epochs", type=int, default=10,
                         help="the K epochs to update the policy")
@@ -76,9 +76,9 @@ def parse_args():
                         help="coefficient of the entropy")
     parser.add_argument("--vf-coef", type=float, default=0.5,
                         help="coefficient of the value function")
-    parser.add_argument("--max-grad-norm", type=float, default=0.5,
+    parser.add_argument("--max-grad-norm", type=float, default=0.3,
                         help="the maximum norm for the gradient clipping")
-    parser.add_argument("--target-kl", type=float, default=None,
+    parser.add_argument("--target-kl", type=float, default=0.01,
                         help="the target KL divergence threshold")
 
     args = parser.parse_args()
@@ -200,6 +200,8 @@ if __name__ == '__main__':
     if not os.path.exists(model_param_path):
         os.makedirs(model_param_path)
     model_param_file = os.path.join(model_param_path, args.model_file_name)
+
+    kl_ent_coef = args.kl_ent_coef
 
     if args.track:
         import wandb
@@ -360,7 +362,11 @@ if __name__ == '__main__':
 
                     logging.info("calculating policy entropy")
                     entropy_loss = entropy.mean()
-                    loss = pg_loss - args.kl_ent_coef * approx_kl + v_loss * args.vf_coef
+                    if approx_kl < args.target_kl / 1.5:
+                        kl_ent_coef  = kl_ent_coef / 2
+                    elif approx_kl > args.target_kl * 1.5:
+                        kl_ent_coef = kl_ent_coef * 2
+                    loss = pg_loss - kl_ent_coef * approx_kl + v_loss * args.vf_coef
 
                     logging.info("calculating gradient")
                     optimizer.zero_grad()
