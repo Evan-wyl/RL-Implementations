@@ -6,6 +6,7 @@ There are some implementation details of Reinforcement Learning algorithms, incl
 | 算法 | 代码地址                                                   | 说明文档                                                     |
 | ---- | ---------------------------------------------------------- | ------------------------------------------------------------ |
 | PPO  | [code](https://github.com/Evan-wyl/run-rl/tree/master/ppo) | [details](https://www.yuque.com/u2274123/xrrca1/huvxggkboeso7sr5) |
+| TRPO |                                                            | [details](https://www.yuque.com/u2274123/xrrca1/uo39n650cyyil6gg) |
 | A3C  |                                                            |                                                              |
 | A2C  |                                                            |                                                              |
 | SAC  |                                                            |                                                              |
