@@ -80,6 +80,8 @@ def parse_args():
                         help="the maximum norm for the gradient clipping")
     parser.add_argument("--target-kl", type=float, default=0.01,
                         help="the target KL divergence threshold")
+    parser.add_argument("--soft-coefficient", type=float, default=0.995,
+                        help="the target KL divergence threshold")
 
     args = parser.parse_args()
     args.batch_size = int(args.num_envs * args.num_steps)
@@ -360,15 +362,24 @@ if __name__ == '__main__':
                         kl_ent_coef = kl_ent_coef * 2
                     loss = pg_loss - kl_ent_coef * approx_kl + v_loss * args.vf_coef
 
+                    old_alpha_param = agent.actor_alpha_pre_softplus.parameters()
+                    old_beta_param = agent.actor_beta_pre_softplus.parameters()
+
                     logging.info("calculating gradient")
                     optimizer.zero_grad()
                     loss.backward()
                     nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                     optimizer.step()
 
-                if args.target_kl is not None:
-                    if approx_kl > args.target_kl:
-                        break
+                    for old_param, param in zip(old_alpha_param, agent.actor_alpha_pre_softplus.parameters()):
+                        param.data.copy_(param.data * (1 - args.soft_coefficient) + old_param.data * args.soft_coefficient)
+
+                    for old_param, param in zip(old_beta_param, agent.actor_beta_pre_softplus.parameters()):
+                        param.data.copy_(param.data * (1 - args.soft_coefficient) + old_param.data * args.soft_coefficient)
+
+                # if args.target_kl is not None:
+                #     if approx_kl > args.target_kl:
+                #         break
 
                 y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
                 var_y = np.var(y_true)
