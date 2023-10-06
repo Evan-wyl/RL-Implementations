@@ -159,14 +159,6 @@ class Agent(nn.Module):
     def get_action_and_value(self, x, action=None):
         alpha = torch.add(self.softplus(self.actor_alpha_pre_softplus(x)), 1)
         beta = torch.add(self.softplus(self.actor_beta_pre_softplus(x)), 1)
-        if torch.isnan(alpha).any() or torch.isnan(beta).any() or torch.isinf(alpha).any() or torch.isinf(beta).any():
-            logging.info("alpha model parameters:")
-            for k,v in enumerate(self.actor_alpha_pre_softplus.parameters()):
-                logging.info("parameter_{}:{}".format(k, v))
-            logging.info("-----------------------------------")
-            logging.info("beta model parameters:")
-            for k,v in enumerate(self.actor_beta_pre_softplus.parameters()):
-                logging.info("parameter_{}:{}".format(k, v))
         probs = Beta(alpha, beta)
         if action is None:
             action = probs.sample()
