@@ -39,14 +39,14 @@ def parse_args():
                         help="if toggled, cuda will be enabled by default")
     parser.add_argument("--track", type=lambda x : bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="if toggled, this experiment will be tracked with Weights and Biases")
-    parser.add_argument("--wandb-project-name", type=str, default="ppo-humanoid",
+    parser.add_argument("--wandb-project-name", type=str, default="ppo-humanoid-gaussian",
                         help="the wandb's project name")
     parser.add_argument("--wandb-entity", type=str, default=None,
                         help="the entity (team) of wandb's project")
     parser.add_argument("--capture-video", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="whether to capture videos of the agent performances (check out `videos` folder)")
 
-    parser.add_argument("--num-envs", type=int, default=2,
+    parser.add_argument("--num-envs", type=int, default=1,
                         help="the number of parallel game environments")
     parser.add_argument( "--num-steps", type=int, default=2048,
                          help="the number of steps to run in each environment per policy rollout")
@@ -145,15 +145,21 @@ class Agent(nn.Module):
 def test(model):
     env = make_env(args.gym_id, args.seed, 0, capture_video=True, run_name=run_name)()
     obs, infos = env.reset()
-    done = False
     total_reward = 0
     obs = torch.tensor(obs).to(device)
-    while not done:
+    step_starting_index = 0
+    episode_index = 0
+    for step_index in range(500):
         action, logprob, _, value = model.get_action_and_value(obs)
         next_obs, reward, done, _, infos = env.step(action.cpu().numpy())
         total_reward += reward
+        if done:
+            save_video(env.render('human'), f"videos/{run_name}/",
+                       fps=env.metadata["render_fps"], step_starting_index=step_starting_index, episode_index=episode_index)
+            step_starting_index = step_index + 1
+            episode_index = episode_index + 1
+            next_obs = env.reset()
         obs = torch.tensor(next_obs).to(device)
-    save_video(env.render('human'), f"videos/{run_name}/")
     env.close()
 
     return total_reward
