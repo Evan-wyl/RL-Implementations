@@ -4,6 +4,7 @@ import time
 
 import gym
 from gym.utils.save_video import save_video
+from gym.wrappers.monitoring.video_recorder import VideoRecorder
 
 import numpy as np
 
@@ -26,12 +27,12 @@ def parse_args():
                         help='the name of this experiment')
     parser.add_argument("--gym-id", type=str, default='Humanoid-v4',
                         help="the id of the gym environment")
-    parser.add_argument('--model-file-name', type=str, default='humanoid.pkl')
+    parser.add_argument('--model-file-name', type=str, default='humanoid_{}.pkl'.format(time.time()))
     parser.add_argument("--learning_rate", type=float, default=3e-4,
                         help='the learning rate of optimizer')
     parser.add_argument("--seed", type=int, default=2023,
                         help="seed of the experiment")
-    parser.add_argument("--total-timesteps", type=int, default=8000000,
+    parser.add_argument("--total-timesteps", type=int, default=800,
                         help='total timesteps of the experiments')
     parser.add_argument("--torch-deterministic", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="if toggled, `torch.backends.cudnn.deterministic=False`")
@@ -43,11 +44,13 @@ def parse_args():
                         help="the wandb's project name")
     parser.add_argument("--wandb-entity", type=str, default=None,
                         help="the entity (team) of wandb's project")
-    parser.add_argument("--capture-video", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
+    parser.add_argument("--capture-video", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
                         help="whether to capture videos of the agent performances (check out `videos` folder)")
 
     parser.add_argument("--num-envs", type=int, default=1,
                         help="the number of parallel game environments")
+    parser.add_argument("--num-seeds", type=int, default=3,
+                        help="the number of random seeds")
     parser.add_argument( "--num-steps", type=int, default=2048,
                          help="the number of steps to run in each environment per policy rollout")
     parser.add_argument("--anneal-lr", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
@@ -85,7 +88,7 @@ def parse_args():
 
 def make_env(gym_id, seed, idx, capture_video, run_name):
     def thunk():
-        env = gym.make(gym_id)
+        env = gym.make(gym_id, render_mode='rgb_array_list')
         env = gym.wrappers.RecordEpisodeStatistics(env)
         if capture_video:
             if idx == 0:
@@ -143,23 +146,21 @@ class Agent(nn.Module):
 
 
 def test(model):
-    env = make_env(args.gym_id, args.seed, 0, capture_video=True, run_name=run_name)()
+    env = make_env(args.gym_id, args.seed, 0, capture_video=False, run_name=run_name)()
+    recorder = VideoRecorder(env, path=f"videos/{run_name}.mp4")
     obs, infos = env.reset()
+    obs = torch.Tensor(obs).to(device)
     total_reward = 0
-    obs = torch.tensor(obs).to(device)
-    step_starting_index = 0
-    episode_index = 0
-    for step_index in range(500):
+    for step_index in range(10):
+        obs = obs.reshape(1, -1)
         action, logprob, _, value = model.get_action_and_value(obs)
+        action = action.reshape(-1,)
         next_obs, reward, done, _, infos = env.step(action.cpu().numpy())
+        recorder.capture_frame()
         total_reward += reward
         if done:
-            save_video(env.render('human'), f"videos/{run_name}/",
-                       fps=env.metadata["render_fps"], step_starting_index=step_starting_index, episode_index=episode_index)
-            step_starting_index = step_index + 1
-            episode_index = episode_index + 1
-            next_obs = env.reset()
-        obs = torch.tensor(next_obs).to(device)
+            next_obs, infos = env.reset()
+        obs = torch.Tensor(next_obs).to(device)
     env.close()
 
     return total_reward
@@ -201,9 +202,11 @@ if __name__ == '__main__':
 
         device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
+        seed_arr = [args.seed + (i % args.num_seeds) for i in range(args.num_envs)]
         envs = gym.vector.SyncVectorEnv(
-            [make_env(args.gym_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
+            [make_env(args.gym_id, seed_arr[i], i, args.capture_video, run_name) for i in range(args.num_envs)]
         )
+        # envs.seed(seed=seed_arr)
         logging.info("Vectorize environment")
 
         assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
@@ -221,7 +224,7 @@ if __name__ == '__main__':
 
         global_step = 0
         start_time = time.time()
-        next_obs = torch.Tensor(envs.reset()[0]).to(device)
+        next_obs = torch.Tensor(envs.reset(seed=seed_arr)[0]).to(device)
         next_done = torch.zeros(args.num_envs).to(device)
         num_updates = args.total_timesteps // args.batch_size
 
