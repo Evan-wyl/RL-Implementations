@@ -4,6 +4,7 @@ import time
 
 import gym
 from gym.utils.save_video import save_video
+from gym.wrappers.monitoring.video_recorder import VideoRecorder
 
 import numpy as np
 
@@ -33,7 +34,7 @@ def parse_args():
                         help='the learning rate of optimizer')
     parser.add_argument("--seed", type=int, default=2023,
                         help="seed of the experiment")
-    parser.add_argument("--total-timesteps", type=int, default=8000000,
+    parser.add_argument("--total-timesteps", type=int, default=30000000,
                         help='total timesteps of the experiments')
     parser.add_argument("--torch-deterministic", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="if toggled, `torch.backends.cudnn.deterministic=False`")
@@ -45,12 +46,12 @@ def parse_args():
                         help="the wandb's project name")
     parser.add_argument("--wandb-entity", type=str, default=None,
                         help="the entity (team) of wandb's project")
-    parser.add_argument("--capture-video", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
+    parser.add_argument("--capture-video", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
                         help="whether to capture videos of the agent performances (check out `videos` folder)")
 
-    parser.add_argument("--num-envs", type=int, default=1,
+    parser.add_argument("--num-envs", type=int, default=32,
                         help="the number of parallel game environments")
-    parser.add_argument( "--num-steps", type=int, default=2048,
+    parser.add_argument( "--num-steps", type=int, default=512,
                          help="the number of steps to run in each environment per policy rollout")
     parser.add_argument("--anneal-lr", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="Toggle learning rate annealing for policy and value networks")
@@ -60,7 +61,7 @@ def parse_args():
                         help="the discount factor gamma")
     parser.add_argument("--gae-lambda", type=float, default=0.95,
                         help="the lambda for the general advantage estimation")
-    parser.add_argument("--num-minibatches", type=int, default=32,
+    parser.add_argument("--num-minibatches", type=int, default=4,
                         help="the number of mini-batches")
     parser.add_argument("--update-epochs", type=int, default=10,
                         help="the K epochs to update the policy")
@@ -70,7 +71,7 @@ def parse_args():
                         help="the surrogate clipping coefficient")
     parser.add_argument("--clip-vloss", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="Toggles whether or not to use a clipped loss for the value function, as per the paper.")
-    parser.add_argument("--ent-coef", type=float, default=0.01,
+    parser.add_argument("--ent-coef", type=float, default=0.0,
                         help="coefficient of the entropy")
     parser.add_argument("--kl-ent-coef", type=float, default=3,
                         help="coefficient of the entropy")
@@ -78,7 +79,7 @@ def parse_args():
                         help="coefficient of the value function")
     parser.add_argument("--max-grad-norm", type=float, default=0.3,
                         help="the maximum norm for the gradient clipping")
-    parser.add_argument("--target-kl", type=float, default=0.01,
+    parser.add_argument("--target-kl", type=float, default=None,
                         help="the target KL divergence threshold")
 
     args = parser.parse_args()
@@ -161,14 +162,6 @@ class Agent(nn.Module):
     def get_action_and_value(self, x, action=None):
         alpha = torch.add(self.softplus(self.actor_alpha_pre_softplus(x)), 1)
         beta = torch.add(self.softplus(self.actor_beta_pre_softplus(x)), 1)
-        if torch.isnan(alpha).any() or torch.isnan(beta).any() or torch.isinf(alpha).any() or torch.isinf(beta).any():
-            logging.info("alpha model parameters:")
-            for k, v in enumerate(self.actor_alpha_pre_softplus.parameters()):
-                logging.info("parameter_{}:{}".format(k, v))
-            logging.info("-----------------------------------")
-            logging.info("beta model parameters:")
-            for k, v in enumerate(self.actor_beta_pre_softplus.parameters()):
-                logging.info("parameter_{}:{}".format(k, v))
         probs = Beta(alpha, beta)
         if action is None:
             action = probs.sample()
@@ -176,17 +169,19 @@ class Agent(nn.Module):
         return action, probs.log_prob(self.inv_scale_by_action_bounds(action)).sum(1), probs.entropy().sum(1), self.critic(x)
 
 
-def test(model):
+def test(model, index):
     env = make_env(args.gym_id, args.seed, 0, capture_video=True, run_name=run_name)()
-    obs, infos = env.reset()
+    recorder = VideoRecorder(env, path=f"videos/{run_name}_{index}.mp4")
+    obs, infos = env.reset(seed=args.seed)
     done = False
     total_reward = 0
-    obs = torch.tensor(obs).to(device)
+    obs = torch.Tensor(obs).to(device)
     while not done:
         action, logprob, _, value = model.get_action_and_value(obs)
         next_obs, reward, done, _, infos = env.step(action.cpu().numpy())
+        recorder.capture_frame()
         total_reward += reward
-        obs = torch.tensor(next_obs).to(device)
+        obs = torch.Tensor(next_obs).to(device)
     save_video(env.render('human'), f"videos/{run_name}/")
     env.close()
 
@@ -229,8 +224,9 @@ if __name__ == '__main__':
 
         device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
+        seed_arr = [args.seed + i for i in range(args.num_envs)]
         envs = gym.vector.SyncVectorEnv(
-            [make_env(args.gym_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
+            [make_env(args.gym_id, seed_arr[i], i, args.capture_video, run_name) for i in range(args.num_envs)]
         )
         logging.info("Vectorize environment")
 
@@ -249,7 +245,7 @@ if __name__ == '__main__':
 
         global_step = 0
         start_time = time.time()
-        next_obs = torch.Tensor(envs.reset()[0]).to(device)
+        next_obs = torch.Tensor(envs.reset(seed=seed_arr)[0]).to(device)
         next_done = torch.zeros(args.num_envs).to(device)
         num_updates = args.total_timesteps // args.batch_size
 
@@ -346,7 +342,7 @@ if __name__ == '__main__':
                     logging.info("calculating policy loss")
                     pg_loss1 = -mb_advantages * ratio
                     pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
-                    pg_loss = pg_loss1.mean()
+                    pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
                     logging.info("calculating value loss......")
                     newvalue = newvalue.view(-1)
@@ -374,9 +370,9 @@ if __name__ == '__main__':
                     nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                     optimizer.step()
 
-                # if args.target_kl is not None:
-                #     if approx_kl > args.target_kl:
-                #         break
+                if args.target_kl is not None:
+                    if approx_kl > args.target_kl:
+                        break
 
                 y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
                 var_y = np.var(y_true)
@@ -397,12 +393,6 @@ if __name__ == '__main__':
 
         logging.info('save models......')
         torch.save(agent.state_dict(), model_param_file)
-        logging.info('model testing......')
-        total_reward = 0
-        for i in range(10):
-            reward = test(agent)
-            total_reward += reward
-        logging.info('total rewards:{}'.format(total_reward))
 
         envs.close()
         writer.close()

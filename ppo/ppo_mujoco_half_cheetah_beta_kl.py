@@ -4,6 +4,7 @@ import time
 
 import gym
 from gym.utils.save_video import save_video
+from gym.wrappers.monitoring.video_recorder import VideoRecorder
 
 import numpy as np
 
@@ -70,7 +71,7 @@ def parse_args():
                         help="the surrogate clipping coefficient")
     parser.add_argument("--clip-vloss", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="Toggles whether or not to use a clipped loss for the value function, as per the paper.")
-    parser.add_argument("--ent-coef", type=float, default=0.01,
+    parser.add_argument("--ent-coef", type=float, default=0.0,
                         help="coefficient of the entropy")
     parser.add_argument("--kl-ent-coef", type=float, default=3,
                         help="coefficient of the entropy")
@@ -78,7 +79,7 @@ def parse_args():
                         help="coefficient of the value function")
     parser.add_argument("--max-grad-norm", type=float, default=0.3,
                         help="the maximum norm for the gradient clipping")
-    parser.add_argument("--target-kl", type=float, default=0.01,
+    parser.add_argument("--target-kl", type=float, default=None,
                         help="the target KL divergence threshold")
     parser.add_argument("--soft-coefficient", type=float, default=0.995,
                         help="the target KL divergence threshold")
@@ -168,17 +169,19 @@ class Agent(nn.Module):
         return action, probs.log_prob(self.inv_scale_by_action_bounds(action)).sum(1), probs.entropy().sum(1), self.critic(x)
 
 
-def test(model):
+def test(model, index):
     env = make_env(args.gym_id, args.seed, 0, capture_video=True, run_name=run_name)()
-    obs, infos = env.reset()
+    recorder = VideoRecorder(env, path=f"videos/{run_name}_{index}.mp4")
+    obs, infos = env.reset(seed=args.seed)
     done = False
     total_reward = 0
-    obs = torch.tensor(obs).to(device)
+    obs = torch.Tensor(obs).to(device)
     while not done:
         action, logprob, _, value = model.get_action_and_value(obs)
         next_obs, reward, done, _, infos = env.step(action.cpu().numpy())
+        recorder.capture_frame()
         total_reward += reward
-        obs = torch.tensor(next_obs).to(device)
+        obs = torch.Tensor(next_obs).to(device)
     save_video(env.render('human'), f"videos/{run_name}/")
     env.close()
 
@@ -223,8 +226,9 @@ if __name__ == '__main__':
 
         device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
+        seed_arr = [args.seed + i for i in range(args.num_envs)]
         envs = gym.vector.SyncVectorEnv(
-            [make_env(args.gym_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
+            [make_env(args.gym_id, seed_arr[i], i, args.capture_video, run_name) for i in range(args.num_envs)]
         )
         logging.info("Vectorize environment")
 
@@ -243,7 +247,7 @@ if __name__ == '__main__':
 
         global_step = 0
         start_time = time.time()
-        next_obs = torch.Tensor(envs.reset()[0]).to(device)
+        next_obs = torch.Tensor(envs.reset(seed=seed_arr)[0]).to(device)
         next_done = torch.zeros(args.num_envs).to(device)
         num_updates = args.total_timesteps // args.batch_size
 
@@ -340,7 +344,7 @@ if __name__ == '__main__':
                     logging.info("calculating policy loss")
                     pg_loss1 = -mb_advantages * ratio
                     pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
-                    pg_loss = pg_loss1.mean()
+                    pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
                     logging.info("calculating value loss......")
                     newvalue = newvalue.view(-1)
@@ -377,9 +381,9 @@ if __name__ == '__main__':
                     for old_param, param in zip(old_beta_param, agent.actor_beta_pre_softplus.parameters()):
                         param.data.copy_(param.data * (1 - args.soft_coefficient) + old_param.data * args.soft_coefficient)
 
-                # if args.target_kl is not None:
-                #     if approx_kl > args.target_kl:
-                #         break
+                if args.target_kl is not None:
+                    if approx_kl > args.target_kl:
+                        break
 
                 y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
                 var_y = np.var(y_true)
@@ -400,12 +404,6 @@ if __name__ == '__main__':
 
         logging.info('save models......')
         torch.save(agent.state_dict(), model_param_file)
-        logging.info('model testing......')
-        total_reward = 0
-        for i in range(10):
-            reward = test(agent)
-            total_reward += reward
-        logging.info('total rewards:{}'.format(total_reward))
 
         envs.close()
         writer.close()

@@ -4,6 +4,7 @@ import time
 
 import gym
 from gym.utils.save_video import save_video
+from gym.wrappers.monitoring.video_recorder import VideoRecorder
 
 import numpy as np
 
@@ -154,17 +155,6 @@ class Agent(nn.Module):
         hidden = self.actor_alpha_beta_shared(x)
         alpha = torch.add(self.softplus(self.actor_alpha_pre_softplus(hidden)), 1)
         beta = torch.add(self.softplus(self.actor_beta_pre_softplus(hidden)), 1)
-        if torch.isnan(alpha).any() or torch.isnan(beta).any() or torch.isinf(alpha).any() or torch.isinf(beta).any():
-            for k,v in enumerate(self.actor_alpha_beta_shared.parameters()):
-                logging.info("parameter_{}:{}".format(k, v))
-            logging.info("-----------------------------------")
-            logging.info("alpha model parameters:")
-            for k,v in enumerate(self.actor_alpha_pre_softplus.parameters()):
-                logging.info("parameter_{}:{}".format(k, v))
-            logging.info("-----------------------------------")
-            logging.info("beta model parameters:")
-            for k,v in enumerate(self.actor_beta_pre_softplus.parameters()):
-                logging.info("parameter_{}:{}".format(k, v))
         probs = Beta(alpha, beta)
         if action is None:
             action = probs.sample()
@@ -172,17 +162,19 @@ class Agent(nn.Module):
         return action, probs.log_prob(self.inv_scale_by_action_bounds(action)).sum(1), probs.entropy().sum(1), self.critic(x)
 
 
-def test(model):
+def test(model, index):
     env = make_env(args.gym_id, args.seed, 0, capture_video=True, run_name=run_name)()
-    obs, infos = env.reset()
+    recorder = VideoRecorder(env, path=f"videos/{run_name}_{index}.mp4")
+    obs, infos = env.reset(seed=args.seed)
     done = False
     total_reward = 0
-    obs = torch.tensor(obs).to(device)
+    obs = torch.Tensor(obs).to(device)
     while not done:
         action, logprob, _, value = model.get_action_and_value(obs)
         next_obs, reward, done, _, infos = env.step(action.cpu().numpy())
+        recorder.capture_frame()
         total_reward += reward
-        obs = torch.tensor(next_obs).to(device)
+        obs = torch.Tensor(next_obs).to(device)
     save_video(env.render('human'), f"videos/{run_name}/")
     env.close()
 
@@ -225,8 +217,9 @@ if __name__ == '__main__':
 
         device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
+        seed_arr = [args.seed + i for i in range(args.num_envs)]
         envs = gym.vector.SyncVectorEnv(
-            [make_env(args.gym_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
+            [make_env(args.gym_id, seed_arr[i], i, args.capture_video, run_name) for i in range(args.num_envs)]
         )
         logging.info("Vectorize environment")
 
@@ -245,7 +238,7 @@ if __name__ == '__main__':
 
         global_step = 0
         start_time = time.time()
-        next_obs = torch.Tensor(envs.reset()[0]).to(device)
+        next_obs = torch.Tensor(envs.reset(seed=seed_arr)[0]).to(device)
         next_done = torch.zeros(args.num_envs).to(device)
         num_updates = args.total_timesteps // args.batch_size
 
@@ -389,12 +382,6 @@ if __name__ == '__main__':
 
         logging.info('save models......')
         torch.save(agent.state_dict(), model_param_file)
-        logging.info('model testing......')
-        total_reward = 0
-        for i in range(10):
-            reward = test(agent)
-            total_reward += reward
-        logging.info('total rewards:{}'.format(total_reward))
 
         envs.close()
         writer.close()
