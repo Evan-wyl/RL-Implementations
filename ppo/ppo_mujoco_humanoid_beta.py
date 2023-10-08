@@ -354,11 +354,11 @@ if __name__ == '__main__':
                         logging.info("value loss clipped......")
                         v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
                         v_clipped = b_values[mb_inds] + torch.clamp(newvalue - b_values[mb_inds], -args.clip_coef, args.clip_coef)
-                        v_loss_clipped = (v_clipped - b_values[mb_inds]) ** 2
+                        v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
                         v_loss_max = torch.max(v_loss_unclipped, v_loss_unclipped)
                         v_loss = 0.5 * v_loss_max.mean()
                     else:
-                        v_loss = 0.5 * ((newvalue - b_values[mb_inds]) ** 2).mean()
+                        v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
                     logging.info("calculating policy entropy")
                     entropy_loss = entropy.mean()
