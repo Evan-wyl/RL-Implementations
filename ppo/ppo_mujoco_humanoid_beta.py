@@ -29,7 +29,7 @@ def parse_args():
                         help='the name of this experiment')
     parser.add_argument("--gym-id", type=str, default='Humanoid-v4',
                         help="the id of the gym environment")
-    parser.add_argument('--model-file-name', type=str, default='humanoid_beta.pkl')
+    parser.add_argument('--model-file-name', type=str, default=f'humanoid_beta_{int(time.time())}.pkl')
     parser.add_argument("--learning_rate", type=float, default=3e-4,
                         help='the learning rate of optimizer')
     parser.add_argument("--seed", type=int, default=2023,
@@ -402,7 +402,7 @@ if __name__ == '__main__':
 
         logging.info('time spending {} second.'.format((time.time() - start_time)))
 
-        logging.info('save models......')
+        logging.info('save models {}......'.format(model_param_path))
         torch.save(agent.state_dict(), model_param_file)
 
         envs.close()
