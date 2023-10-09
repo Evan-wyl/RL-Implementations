@@ -48,6 +48,8 @@ def parse_args():
                         help="the entity (team) of wandb's project")
     parser.add_argument("--capture-video", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
                         help="whether to capture videos of the agent performances (check out `videos` folder)")
+    parser.add_argument("--train-flag", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
+                        help="whether to train model")
 
     parser.add_argument("--num-envs", type=int, default=32,
                         help="the number of parallel game environments")
@@ -169,20 +171,24 @@ class Agent(nn.Module):
         return action, probs.log_prob(self.inv_scale_by_action_bounds(action)).sum(1), probs.entropy().sum(1), self.critic(x)
 
 
-def test(model, index):
-    env = make_env(args.gym_id, args.seed, 0, capture_video=True, run_name=run_name)()
-    recorder = VideoRecorder(env, path=f"videos/{run_name}_{index}.mp4")
-    obs, infos = env.reset(seed=args.seed)
-    done = False
+def test(state_path, v_save_path):
+    env = make_env(args.gym_id, args.seed, 0, capture_video=False, run_name=run_name)()
+    model = Agent(env)
+    model.load_state_dict(torch.load(state_path, map_location=torch.device('cpu')))
+    recorder = VideoRecorder(env, path=v_save_path)
+    obs, infos = env.reset()
+    obs = torch.Tensor(obs).to('cpu')
     total_reward = 0
-    obs = torch.Tensor(obs).to(device)
-    while not done:
+    for step_index in range(1500):
+        obs = obs.reshape(1, -1)
         action, logprob, _, value = model.get_action_and_value(obs)
+        action = action.reshape(-1,)
         next_obs, reward, done, _, infos = env.step(action.cpu().numpy())
         recorder.capture_frame()
         total_reward += reward
-        obs = torch.Tensor(next_obs).to(device)
-    save_video(env.render('human'), f"videos/{run_name}/")
+        if done:
+            next_obs, infos = env.reset()
+        obs = torch.Tensor(next_obs).to('cpu')
     env.close()
 
     return total_reward
@@ -193,12 +199,17 @@ if __name__ == '__main__':
     run_name = f"{args.gym_id}_{args.exp_name}_{args.seed}_{int(time.time())}"
     logging.info("run_name: {}".format(run_name))
 
+    video_path = './videos/'
+    if not os.path.exists(video_path):
+        os.makedirs(video_path)
+
     model_param_path = "../models/"
     if not os.path.exists(model_param_path):
         os.makedirs(model_param_path)
     model_param_file = os.path.join(model_param_path, args.model_file_name)
+    args.train_flag = False
 
-    if args.track:
+    if args.track and args.train_flag:
         import wandb
         wandb.login(key="key")
         logging.info("log in wandb")
@@ -396,6 +407,14 @@ if __name__ == '__main__':
 
         envs.close()
         writer.close()
+    else:
+        logging.info('model testing......')
+        total_reward = 0
+        for i in range(10):
+            v_save_path = f"videos/{run_name}_{i}.mp4"
+            reward = test(model_param_file, v_save_path)
+            total_reward += reward
+        logging.info('total rewards:{}'.format(total_reward))
 
 
 

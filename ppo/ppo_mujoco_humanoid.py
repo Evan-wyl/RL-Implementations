@@ -27,7 +27,7 @@ def parse_args():
                         help='the name of this experiment')
     parser.add_argument("--gym-id", type=str, default='Humanoid-v4',
                         help="the id of the gym environment")
-    parser.add_argument('--model-file-name', type=str, default='humanoid_{}.pkl'.format(time.time()))
+    parser.add_argument('--model-file-name', type=str, default='humanoid_gaussian.pkl'.format(time.time()))
     parser.add_argument("--learning_rate", type=float, default=3e-4,
                         help='the learning rate of optimizer')
     parser.add_argument("--seed", type=int, default=2023,
@@ -46,6 +46,8 @@ def parse_args():
                         help="the entity (team) of wandb's project")
     parser.add_argument("--capture-video", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
                         help="whether to capture videos of the agent performances (check out `videos` folder)")
+    parser.add_argument("--train-flag", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
+                        help="whether to train model")
 
     parser.add_argument("--num-envs", type=int, default=1,
                         help="the number of parallel game environments")
@@ -115,8 +117,15 @@ class Agent(nn.Module):
     def __init__(self, envs):
         super(Agent, self).__init__()
 
+        if args.train_flag:
+            obs_shape = envs.single_observation_space.shape
+            action_shape = envs.single_action_space.shape
+        else:
+            obs_shape = envs.observation_space.shape
+            action_shape = envs.action_space.shape
+
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+            layer_init(nn.Linear(np.array(obs_shape).prod(), 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
@@ -124,13 +133,13 @@ class Agent(nn.Module):
         )
 
         self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+            layer_init(nn.Linear(np.array(obs_shape).prod(), 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01)
+            layer_init(nn.Linear(64, np.prod(action_shape)), std=0.01)
         )
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.single_action_space.shape)))
+        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(action_shape)))
 
     def get_value(self, x):
         return self.critic(x)
@@ -145,13 +154,15 @@ class Agent(nn.Module):
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(), self.critic(x)
 
 
-def test(model):
+def test(state_path, v_save_path):
     env = make_env(args.gym_id, args.seed, 0, capture_video=False, run_name=run_name)()
-    recorder = VideoRecorder(env, path=f"videos/{run_name}.mp4")
+    model = Agent(env)
+    model.load_state_dict(torch.load(state_path, map_location=torch.device('cpu')))
+    recorder = VideoRecorder(env, path=v_save_path)
     obs, infos = env.reset()
-    obs = torch.Tensor(obs).to(device)
+    obs = torch.Tensor(obs).to('cpu')
     total_reward = 0
-    for step_index in range(10):
+    for step_index in range(1500):
         obs = obs.reshape(1, -1)
         action, logprob, _, value = model.get_action_and_value(obs)
         action = action.reshape(-1,)
@@ -160,7 +171,7 @@ def test(model):
         total_reward += reward
         if done:
             next_obs, infos = env.reset()
-        obs = torch.Tensor(next_obs).to(device)
+        obs = torch.Tensor(next_obs).to('cpu')
     env.close()
 
     return total_reward
@@ -171,12 +182,17 @@ if __name__ == '__main__':
     run_name = f"{args.gym_id}_{args.exp_name}_{args.seed}_{int(time.time())}"
     logging.info("run_name: {}".format(run_name))
 
+    video_path = './videos/'
+    if not os.path.exists(video_path):
+        os.makedirs(video_path)
+
     model_param_path = "../models/"
     if not os.path.exists(model_param_path):
         os.makedirs(model_param_path)
     model_param_file = os.path.join(model_param_path, args.model_file_name)
+    args.train_flag = False
 
-    if args.track:
+    if args.track and args.train_flag:
         import wandb
         wandb.login(key="key")
         logging.info("log in wandb")
@@ -368,15 +384,16 @@ if __name__ == '__main__':
 
         logging.info('save models......')
         torch.save(agent.state_dict(), model_param_file)
+        envs.close()
+        writer.close()
+    else:
         logging.info('model testing......')
         total_reward = 0
         for i in range(10):
-            reward = test(agent)
+            v_save_path = f"videos/{run_name}_{i}.mp4"
+            reward = test(model_param_file, v_save_path)
             total_reward += reward
         logging.info('total rewards:{}'.format(total_reward))
-
-        envs.close()
-        writer.close()
 
 
 
