@@ -179,7 +179,7 @@ def test(state_path, v_save_path):
     obs, infos = env.reset()
     obs = torch.Tensor(obs).to('cpu')
     total_reward = 0
-    for step_index in range(1500):
+    for step_index in range(3000):
         obs = obs.reshape(1, -1)
         action, logprob, _, value = model.get_action_and_value(obs)
         action = action.reshape(-1,)
