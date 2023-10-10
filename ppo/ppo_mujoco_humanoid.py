@@ -27,12 +27,13 @@ def parse_args():
                         help='the name of this experiment')
     parser.add_argument("--gym-id", type=str, default='Humanoid-v4',
                         help="the id of the gym environment")
-    parser.add_argument('--model-file-name', type=str, default='humanoid_gaussian.pkl'.format(time.time()))
+    parser.add_argument('--model-file-name', type=str, default='humanoid_gaussian')
+    parser.add_argument('--model-version', type=int, default=1)
     parser.add_argument("--learning_rate", type=float, default=3e-4,
                         help='the learning rate of optimizer')
     parser.add_argument("--seed", type=int, default=2023,
                         help="seed of the experiment")
-    parser.add_argument("--total-timesteps", type=int, default=800,
+    parser.add_argument("--total-timesteps", type=int, default=20000000,
                         help='total timesteps of the experiments')
     parser.add_argument("--torch-deterministic", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="if toggled, `torch.backends.cudnn.deterministic=False`")
@@ -157,10 +158,10 @@ class Agent(nn.Module):
 def test(state_path, v_save_path):
     env = make_env(args.gym_id, args.seed, 0, capture_video=False, run_name=run_name)()
     model = Agent(env)
-    model.load_state_dict(torch.load(state_path, map_location=torch.device('cpu')))
+    model.load_state_dict(torch.load(state_path, map_location=torch.device(device)))
     recorder = VideoRecorder(env, path=v_save_path)
     obs, infos = env.reset()
-    obs = torch.Tensor(obs).to('cpu')
+    obs = torch.Tensor(obs).to(device)
     total_reward = 0
     for step_index in range(3000):
         obs = obs.reshape(1, -1)
@@ -171,7 +172,7 @@ def test(state_path, v_save_path):
         total_reward += reward
         if done:
             next_obs, infos = env.reset()
-        obs = torch.Tensor(next_obs).to('cpu')
+        obs = torch.Tensor(next_obs).to(device)
     env.close()
 
     return total_reward
@@ -191,6 +192,8 @@ if __name__ == '__main__':
         os.makedirs(model_param_path)
     model_param_file = os.path.join(model_param_path, args.model_file_name)
     args.train_flag = False
+
+    device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
     if args.track and args.train_flag:
         import wandb
@@ -215,8 +218,6 @@ if __name__ == '__main__':
         np.random.seed(args.seed)
         torch.manual_seed(args.seed)
         torch.backends.cudnn.deterministic = args.torch_deterministic
-
-        device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
         seed_arr = [args.seed + (i % args.num_seeds) for i in range(args.num_envs)]
         envs = gym.vector.SyncVectorEnv(
