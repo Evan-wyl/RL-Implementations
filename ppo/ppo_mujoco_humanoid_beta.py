@@ -29,12 +29,13 @@ def parse_args():
                         help='the name of this experiment')
     parser.add_argument("--gym-id", type=str, default='Humanoid-v4',
                         help="the id of the gym environment")
-    parser.add_argument('--model-file-name', type=str, default=f'humanoid_beta_{int(time.time())}.pkl')
+    parser.add_argument('--model-file-name', type=str, default=f'humanoid_beta')
+    parser.add_argument('--model-version', type=int, default=1)
     parser.add_argument("--learning_rate", type=float, default=3e-4,
                         help='the learning rate of optimizer')
     parser.add_argument("--seed", type=int, default=2023,
                         help="seed of the experiment")
-    parser.add_argument("--total-timesteps", type=int, default=30000000,
+    parser.add_argument("--total-timesteps", type=int, default=20000000,
                         help='total timesteps of the experiments')
     parser.add_argument("--torch-deterministic", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="if toggled, `torch.backends.cudnn.deterministic=False`")
@@ -42,7 +43,7 @@ def parse_args():
                         help="if toggled, cuda will be enabled by default")
     parser.add_argument("--track", type=lambda x : bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="if toggled, this experiment will be tracked with Weights and Biases")
-    parser.add_argument("--wandb-project-name", type=str, default="ppo-humanoid-beta-kl",
+    parser.add_argument("--wandb-project-name", type=str, default="ppo-humanoid-beta",
                         help="the wandb's project name")
     parser.add_argument("--wandb-entity", type=str, default=None,
                         help="the entity (team) of wandb's project")
@@ -79,7 +80,7 @@ def parse_args():
                         help="coefficient of the entropy")
     parser.add_argument("--vf-coef", type=float, default=0.5,
                         help="coefficient of the value function")
-    parser.add_argument("--max-grad-norm", type=float, default=0.3,
+    parser.add_argument("--max-grad-norm", type=float, default=0.5,
                         help="the maximum norm for the gradient clipping")
     parser.add_argument("--target-kl", type=float, default=None,
                         help="the target KL divergence threshold")
@@ -92,7 +93,7 @@ def parse_args():
 
 def make_env(gym_id, seed, idx, capture_video, run_name):
     def thunk():
-        env = gym.make(gym_id)
+        env = gym.make(gym_id, render_mode='rgb_array_list')
         env = gym.wrappers.RecordEpisodeStatistics(env)
         if capture_video:
             if idx == 0:
@@ -174,10 +175,10 @@ class Agent(nn.Module):
 def test(state_path, v_save_path):
     env = make_env(args.gym_id, args.seed, 0, capture_video=False, run_name=run_name)()
     model = Agent(env)
-    model.load_state_dict(torch.load(state_path, map_location=torch.device('cpu')))
+    model.load_state_dict(torch.load(state_path, map_location=torch.device(device)))
     recorder = VideoRecorder(env, path=v_save_path)
     obs, infos = env.reset()
-    obs = torch.Tensor(obs).to('cpu')
+    obs = torch.Tensor(obs).to(device)
     total_reward = 0
     for step_index in range(3000):
         obs = obs.reshape(1, -1)
@@ -188,7 +189,7 @@ def test(state_path, v_save_path):
         total_reward += reward
         if done:
             next_obs, infos = env.reset()
-        obs = torch.Tensor(next_obs).to('cpu')
+        obs = torch.Tensor(next_obs).to(device)
     env.close()
 
     return total_reward
@@ -206,8 +207,10 @@ if __name__ == '__main__':
     model_param_path = "../models/"
     if not os.path.exists(model_param_path):
         os.makedirs(model_param_path)
-    model_param_file = os.path.join(model_param_path, args.model_file_name)
-    args.train_flag = False
+    model_param_file = os.path.join(model_param_path, '{}_{}.pkl'.format(args.model_file_name, args.model_version))
+    args.train_flag = True
+
+    device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
     if args.track and args.train_flag:
         import wandb
@@ -232,8 +235,6 @@ if __name__ == '__main__':
         np.random.seed(args.seed)
         torch.manual_seed(args.seed)
         torch.backends.cudnn.deterministic = args.torch_deterministic
-
-        device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
         seed_arr = [args.seed + i for i in range(args.num_envs)]
         envs = gym.vector.SyncVectorEnv(
@@ -373,7 +374,7 @@ if __name__ == '__main__':
                         args.kl_ent_coef  = args.kl_ent_coef / 2
                     elif approx_kl > args.target_kl * 1.5:
                         args.kl_ent_coef = args.kl_ent_coef * 2
-                    loss = pg_loss - args.kl_ent_coef * approx_kl + v_loss * args.vf_coef
+                    loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
 
                     logging.info("calculating gradient")
                     optimizer.zero_grad()
@@ -409,12 +410,12 @@ if __name__ == '__main__':
         writer.close()
     else:
         logging.info('model testing......')
-        total_reward = 0
+        rew_arr = []
         for i in range(10):
             v_save_path = f"videos/{run_name}_{i}.mp4"
             reward = test(model_param_file, v_save_path)
-            total_reward += reward
-        logging.info('total rewards:{}'.format(total_reward))
+            rew_arr.append(reward)
+        logging.info('mean rewards:{}'.format(np.mean(rew_arr)))
 
 
 
