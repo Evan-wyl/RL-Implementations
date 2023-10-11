@@ -125,8 +125,19 @@ class Agent(nn.Module):
     def __init__(self, envs):
         super(Agent, self).__init__()
 
+        if args.train_flag:
+            obs_shape = envs.single_observation_space.shape
+            action_shape = envs.single_action_space.shape
+            action_high = envs.single_action_space.high
+            action_low = envs.single_action_space.low
+        else:
+            obs_shape = envs.observation_space.shape
+            action_shape = envs.action_space.shape
+            action_high = envs.action_space.high
+            action_low = envs.action_space.low
+
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64)),
+            layer_init(nn.Linear(np.array(obs_shape).prod(), 64)),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64)),
             nn.Tanh(),
@@ -134,22 +145,22 @@ class Agent(nn.Module):
         )
 
         self.actor_alpha_pre_softplus = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64), type='xavier_uniform_tanh'),
+            layer_init(nn.Linear(np.array(obs_shape).prod(), 64), type='xavier_uniform_tanh'),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64), type='xavier_uniform_tanh'),
             nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01, type='xavier_uniform')
+            layer_init(nn.Linear(64, np.prod(action_shape)), std=0.01, type='xavier_uniform')
         )
         self.actor_beta_pre_softplus = nn.Sequential(
-            layer_init(nn.Linear(np.array(envs.single_observation_space.shape).prod(), 64), type='xavier_uniform_tanh'),
+            layer_init(nn.Linear(np.array(obs_shape).prod(), 64), type='xavier_uniform_tanh'),
             nn.Tanh(),
             layer_init(nn.Linear(64, 64), type='xavier_uniform_tanh'),
             nn.Tanh(),
-            layer_init(nn.Linear(64, np.prod(envs.single_action_space.shape)), std=0.01, type='xavier_uniform')
+            layer_init(nn.Linear(64, np.prod(action_shape)), std=0.01, type='xavier_uniform')
         )
 
-        self.action_space_high = torch.tensor(envs.single_action_space.high).to(device)
-        self.action_space_low = torch.tensor(envs.single_action_space.low).to(device)
+        self.action_space_high = torch.tensor(action_high).to(device)
+        self.action_space_low = torch.tensor(action_low).to(device)
 
         self.softplus = torch.nn.Softplus()
 
@@ -208,7 +219,7 @@ if __name__ == '__main__':
     if not os.path.exists(model_param_path):
         os.makedirs(model_param_path)
     model_param_file = os.path.join(model_param_path, '{}_{}.pkl'.format(args.model_file_name, args.model_version))
-    args.train_flag = True
+    args.train_flag = False
 
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
@@ -370,10 +381,11 @@ if __name__ == '__main__':
 
                     logging.info("calculating policy entropy")
                     entropy_loss = entropy.mean()
-                    if approx_kl < args.target_kl / 1.5:
-                        args.kl_ent_coef  = args.kl_ent_coef / 2
-                    elif approx_kl > args.target_kl * 1.5:
-                        args.kl_ent_coef = args.kl_ent_coef * 2
+                    if args.target_kl is not None:
+                        if approx_kl < args.target_kl / 1.5:
+                            args.kl_ent_coef = args.kl_ent_coef / 2
+                        elif approx_kl > args.target_kl * 1.5:
+                            args.kl_ent_coef = args.kl_ent_coef * 2
                     loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
 
                     logging.info("calculating gradient")
