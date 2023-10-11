@@ -47,6 +47,14 @@ conda install ffmpeg -c conda-forge
 
 pip install autorom(install command)
 AutoROM --accept-license(execute command)
+
+# isaacgym
+wget https://developer.nvidia.com/isaac-gym-preview-4
+tar -zxvf IsaacGym_Preview_4_Package.tar.gz
+cd issacgym
+pip install -e .
+
+https://developer.nvidia.com/isaac-gym/download
 ```
 
 
