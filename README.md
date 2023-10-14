@@ -27,6 +27,7 @@ pip install torch
 pip install torchsummary
 pip install torchinfo
 pip install scikit-learn
+conda install cudnn
 
 # 训练结果可视化工具包
 pip install tensorboard
