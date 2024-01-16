@@ -56,6 +56,9 @@ cd issacgym
 pip install -e .
 
 https://developer.nvidia.com/isaac-gym/download
+
+# pybullet
+pip install pybullet
 ```
 
 
