@@ -1,18 +1,4 @@
-# run-rl
-There are some implementation details of Reinforcement Learning algorithms, including PPO||A3C||A2C||SAC||GAIL.
-
-
-
-| 算法 | 代码地址                                                    | 说明文档                                                     |
-| ---- | ----------------------------------------------------------- | ------------------------------------------------------------ |
-| PPO  | [code](https://github.com/Evan-wyl/run-rl/tree/master/ppo)  | [details](https://www.yuque.com/u2274123/xrrca1/huvxggkboeso7sr5) |
-| TRPO | [code](https://github.com/Evan-wyl/run-rl/tree/master/TRPO) | [details](https://www.yuque.com/u2274123/xrrca1/uo39n650cyyil6gg) |
-| A3C  |                                                             |                                                              |
-| A2C  |                                                             |                                                              |
-| SAC  |                                                             |                                                              |
-| GAIL |                                                             |                                                              |
-| PPG  |                                                             |                                                              |
-
+# RL Implementations
 ```python
 # 创建虚拟环境
 conda create -n py3.8 python=3.8
