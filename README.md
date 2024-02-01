@@ -27,7 +27,6 @@ pip install opencv-contrib-python-headless
 pip install gym
 pip install stable_baselines3
 pip install ale-py
-pip install mujoco
 pip install moviepy
 pip install glx
 conda install ffmpeg -c conda-forge
@@ -35,16 +34,18 @@ conda install ffmpeg -c conda-forge
 pip install autorom(install command)
 AutoROM --accept-license(execute command)
 
+# Mujoco
+pip install mujoco
+
 # isaacgym
+conda create -n rlgpu python=3.7
+apt install nvidia-driver-525-server
+conda install pytorch==1.13.0 torchvision==0.14.0 torchaudio==0.13.0 pytorch-cuda=11.7 -c pytorch -c nvidia
+
 wget https://developer.nvidia.com/isaac-gym-preview-4
 tar -zxvf IsaacGym_Preview_4_Package.tar.gz
 cd issacgym
 pip install -e .
-
-https://developer.nvidia.com/isaac-gym/download
-
-# pybullet
-pip install pybullet
 ```
 
 
