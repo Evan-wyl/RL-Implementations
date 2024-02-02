@@ -129,7 +129,7 @@ def train(shared_model, shared_optimizer, rank, args, info):
         hx = torch.zeros(1, 256)
         values, logps, actions, rewards = [], [], [], []
 
-        for step in range(args.rNN_steps):
+        for step in range(args.rnn_steps):
             episode_length += 1
             value, logit, hx = model((state.view(1, 1, 80, 80), hx))
             logp = F.log_softmax(logit, dim=1)
@@ -156,7 +156,7 @@ def train(shared_model, shared_optimizer, rank, args, info):
                 if info['episodes'][0] == 1:
                     interp = 1
                 else:
-                    interp = 1 - args.herizon
+                    interp = 1 - args.horizon
                 info['run_epr'].mul_(1 - interp).add_(interp * epr)
                 info['run_loss'].mul_(1 - interp).add_(interp * eploss)
 
@@ -193,8 +193,6 @@ def train(shared_model, shared_optimizer, rank, args, info):
             if shared_param.grad is None:
                 shared_param._grad =  param.grad
         shared_optimizer.step()
-
-
 
 
 if __name__ == '__main__':
