@@ -32,7 +32,7 @@ def parse_args():
                         help='the name of this experiment')
     parser.add_argument('--env-name', default='Humanoid-v4', metavar='G',
                         help='name of the environment to run')
-    parser.add_argument('--model-file-name', type=str, default='trpo-humanoid-gaussian')
+    parser.add_argument('--model-file-name', type=str, default='TRPO-humanoid-gaussian')
     parser.add_argument('--model-version', type=int, default=1)
     parser.add_argument('--learning-rate', type=float, default=3e-4,
                         help='the learning rate of optimizer')
@@ -46,7 +46,7 @@ def parse_args():
                         help='if toggled, cuda will be enabled by defaul')
     parser.add_argument("--track", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                         help="if toggled, this experiment will be tracked with Weights and Biases")
-    parser.add_argument("--wandb-project-name", type=str, default="trpo-humanoid-gaussian",
+    parser.add_argument("--wandb-project-name", type=str, default="TRPO-humanoid-gaussian",
                         help="the wandb's project name")
     parser.add_argument('--wandb-entity', type=str, default=None,
                         help="the entity (team) of wandb's project")
