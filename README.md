@@ -1,4 +1,9 @@
 # RL Implementations
+
+[![Awesome](https://awesome.re/badge.svg)](https://awesome.re) [![MIT License](https://img.shields.io/badge/license-Apache-green.svg)](https://opensource.org/licenses/MIT) [![LICENSE](https://img.shields.io/badge/license-Anti%20996-blue.svg)](https://github.com/996icu/996.ICU/blob/master/LICENSE)
+
+
+
 ```python
 # 创建虚拟环境
 conda create -n py3.8 python=3.8
