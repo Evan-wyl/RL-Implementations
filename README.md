@@ -48,9 +48,6 @@ conda create -n rlgpu python=3.7
 ## Nvidia Driver version
 apt install nvidia-driver-525-server
 conda install pytorch==1.13.0 torchvision==0.14.0 torchaudio==0.13.0 pytorch-cuda=11.7 -c pytorch -c nvidia
-### or
-Driver Version: 460.32.03
-CUDA Version: 11.2
 
 wget https://developer.nvidia.com/isaac-gym-preview-4
 tar -zxvf IsaacGym_Preview_4_Package.tar.gz
