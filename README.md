@@ -65,7 +65,7 @@ pip install -e .
 | ------------------------------------------------------------ | --------------------------------- |
 | [A3C-GRU](https://github.com/pranz24/A3C-GRU) [baby-a3c](https://github.com/greydanus/baby-a3c) | A3C                               |
 | [pytorch-a2c-ppo-acktr-gail](https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail) | A2C<br />PPO<br />ACKTR<br />GAIL |
-| [pytorch-trpo](https://github.com/ikostrikov/pytorch-trpo) [trpo](https://github.com/pat-coady/trpo) | TRPO                              |
+| [pytorch-trpo](https://github.com/ikostrikov/pytorch-trpo) [trpo](https://github.com/pat-coady/trpo) [modular_rl](https://github.com/joschu/modular_rl) | TRPO                              |
 | [pytorch_sac](https://github.com/denisyarats/pytorch_sac) [sac](https://github.com/haarnoja/sac) | SAC                               |
 | [BCQ](https://github.com/sfujim/BCQ)                         | BCQ                               |
 | [CQL](https://github.com/aviralkumar2907/CQL)                | CQL                               |
