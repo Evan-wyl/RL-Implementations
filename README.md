@@ -4,6 +4,8 @@
 
 
 
+### Requirements
+
 ```python
 # 创建虚拟环境
 conda create -n py3.8 python=3.8
@@ -57,10 +59,21 @@ pip install -e .
 
 
 
+### Related Project
+
+| Project                                                      | Including Algorithms              |
+| ------------------------------------------------------------ | --------------------------------- |
+| [A3C-GRU](https://github.com/pranz24/A3C-GRU) [baby-a3c](https://github.com/greydanus/baby-a3c) | A3C                               |
+| [pytorch-a2c-ppo-acktr-gail](https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail) | A2C<br />PPO<br />ACKTR<br />GAIL |
+| [pytorch-trpo](https://github.com/ikostrikov/pytorch-trpo) [trpo](https://github.com/pat-coady/trpo) | TRPO                              |
+| [pytorch_sac](https://github.com/denisyarats/pytorch_sac) [sac](https://github.com/haarnoja/sac) | SAC                               |
+| [BCQ](https://github.com/sfujim/BCQ)                         | BCQ                               |
+| [CQL](https://github.com/aviralkumar2907/CQL)                | CQL                               |
+| [batch_rl](https://github.com/google-research/batch_rl)      |                                   |
+| [seed_rl](https://github.com/google-research/seed_rl)        |                                   |
 
 
 
-
-## 参考文献
+## Reference
 
 [The 37 Implementation Details of Proximal Policy Optimization](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/)
