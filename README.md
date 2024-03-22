@@ -69,8 +69,8 @@ pip install -e .
 | [pytorch_sac](https://github.com/denisyarats/pytorch_sac) [sac](https://github.com/haarnoja/sac) | SAC                               |
 | [BCQ](https://github.com/sfujim/BCQ)                         | BCQ                               |
 | [CQL](https://github.com/aviralkumar2907/CQL)                | CQL                               |
-| [batch_rl](https://github.com/google-research/batch_rl)      |                                   |
-| [seed_rl](https://github.com/google-research/seed_rl)        |                                   |
+| [batch_rl](https://github.com/google-research/batch_rl)      | Batch RL                          |
+| [seed_rl](https://github.com/google-research/seed_rl)        | IMPALA<br />R2D2                  |
 
 
 
